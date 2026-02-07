@@ -669,7 +669,6 @@ export async function saveExpense(
       category: expense.category,
       payment_method: expense.paymentMethod,
       from_cash_register: expense.fromCashRegister || false,
-      created_at: new Date().toISOString(),
     };
 
     const { data, error } = await supabase
@@ -798,7 +797,6 @@ export async function saveEmployeePayment(
       notes: payment.notes,
       payment_method: payment.paymentMethod,
       from_cash_register: payment.fromCashRegister,
-      created_at: new Date().toISOString(),
     };
 
     const { data, error } = await supabase
@@ -996,8 +994,7 @@ export async function createDailyClosure(): Promise<DailyClosure> {
       total_payments: totalPayments,
       low_stock_products: lowStockProducts,
       daily_base: config.dailyBase,
-      cash_excess_transferred: excessCash, // GUARDAR EL MONTO TRANSFERIDO
-      created_at: new Date().toISOString(),
+      cash_excess_transferred: excessCash,
     };
 
     const { data, error } = await supabase
@@ -1702,7 +1699,6 @@ export async function addMajorCashMovement(
       movement_type: movement.movementType,
       notes: movement.notes,
       created_by: movement.createdBy,
-      created_at: new Date().toISOString(),
     };
 
     const { data, error } = await supabase

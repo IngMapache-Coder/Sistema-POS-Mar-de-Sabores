@@ -1122,12 +1122,14 @@ export function POSInterface() {
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {new Date(sale.createdAt).toLocaleTimeString("es-CO", {
-  timeZone: "UTC",
-  hour: "2-digit",
-  minute: "2-digit",
-})
-}
+                          {new Date(sale.createdAt).toLocaleTimeString(
+                            "es-CO",
+                            {
+                              timeZone: "UTC",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            },
+                          )}
                         </p>
                         <div className="mt-2 text-sm">
                           {sale.items.map((item) => (
