@@ -572,7 +572,13 @@ export default function CierresHistoricosPage() {
           ${config.businessNIT ? `<div class="business-nit">NIT: ${config.businessNIT}</div>` : ""}
           <div class="business-info">CIERRE DE CAJA</div>
           <div class="business-info">${closure.date}</div>
-          <div class="business-info">Hora: ${new Date(closure.createdAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}</div>
+          <div class="business-info">Hora: ${new Date(
+            closure.createdAt,
+          ).toLocaleTimeString("es-CO", {
+            timeZone: "UTC",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}</div>
         </div>
         
         <div class="section">
@@ -1054,8 +1060,9 @@ export default function CierresHistoricosPage() {
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {new Date(closure.createdAt).toLocaleTimeString(
-                                "es-MX",
+                                "es-CO",
                                 {
+                                  timeZone: "UTC",
                                   hour: "2-digit",
                                   minute: "2-digit",
                                 },
@@ -1374,7 +1381,12 @@ export default function CierresHistoricosPage() {
                                 </div>
                                 <div className="text-xs text-muted-foreground mt-1">
                                   {new Date(sale.createdAt).toLocaleTimeString(
-                                    "es-MX",
+                                    "es-CO",
+                                    {
+                                      timeZone: "UTC",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    },
                                   )}
                                 </div>
                                 <div className="text-xs mt-1">

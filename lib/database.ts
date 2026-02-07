@@ -481,9 +481,6 @@ export async function saveSale(
         ? sale.cashReceived - sale.cashAmount
         : 0;
 
-    const now = new Date();
-    const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-
     const newSale = {
       items: sale.items,
       subtotal: sale.subtotal,
@@ -494,7 +491,7 @@ export async function saveSale(
       cash_returned: cashReturned,
       payment_method: sale.paymentMethod,
       status: "completed",
-      created_at: localDateTime.toISOString(),
+      // created_at -> lo pone la BD
     };
 
     const { data, error } = await supabase
@@ -510,7 +507,7 @@ export async function saveSale(
       await updateProductStock(item.productId, item.quantity);
     }
 
-    // REGISTRAR TRANSFERENCIA EN CAJA MAYOR si existe
+    // Registrar transferencia en caja mayor si existe
     if (sale.transferAmount > 0) {
       await registerTransferIncome(
         sale.transferAmount,
@@ -530,7 +527,7 @@ export async function saveSale(
       cashReturned: parseFloat(data.cash_returned),
       paymentMethod: data.payment_method,
       status: data.status,
-      createdAt: data.created_at,
+      createdAt: data.created_at, // ya viene correcto (-05:00)
     };
   } catch (error) {
     handleSupabaseError(error, "Error al guardar venta");
