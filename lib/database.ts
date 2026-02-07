@@ -481,6 +481,9 @@ export async function saveSale(
         ? sale.cashReceived - sale.cashAmount
         : 0;
 
+    const now = new Date();
+    const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+
     const newSale = {
       items: sale.items,
       subtotal: sale.subtotal,
@@ -491,7 +494,7 @@ export async function saveSale(
       cash_returned: cashReturned,
       payment_method: sale.paymentMethod,
       status: "completed",
-      created_at: new Date().toISOString(),
+      created_at: localDateTime.toISOString(),
     };
 
     const { data, error } = await supabase
@@ -1484,24 +1487,25 @@ export async function verifyLogin(
   password: string,
 ): Promise<any> {
   try {
-    // PRIMERO: Intentar con la función RPC
-    const { data: rpcData, error: rpcError } = await supabase.rpc("verify_user_password", {
+    const { data, error } = await supabase.rpc("verify_user_password", {
       username_text: username,
       password_text: password,
     });
 
-    // Si el RPC funciona y devuelve datos VÁLIDOS
-    if (rpcData && rpcData.length > 0 && rpcData[0].id) {
+    if (error) {
+      throw new Error(error.message || "Error en verificación de usuario");
+    }
+
+    if (data && data.length > 0) {
       return {
-        id: rpcData[0].id,
-        username: rpcData[0].username,
-        name: rpcData[0].name,
-        role: rpcData[0].role,
+        id: data[0].id,
+        username: data[0].username,
+        name: data[0].name,
+        role: data[0].role,
       };
     }
 
-    // Si el RPC falla o no devuelve datos válidos, usar la tabla local
-    const { data: user, error: queryError } = await supabase
+    const { data: users, error: queryError } = await supabase
       .from("users")
       .select("*")
       .eq("username", username)
@@ -1509,32 +1513,25 @@ export async function verifyLogin(
       .single();
 
     if (queryError) {
-      // Usuario no encontrado
-      console.error("Error consultando usuario:", queryError.message);
-      return null;
+      throw new Error(queryError.message || "Error consultando usuario");
     }
 
-    // Verificar contraseña
     const validPasswords: Record<string, string> = {
       admin: "admin123",
       caja: "caja123",
       empleado: "empleado123",
     };
 
-    // VERIFICACIÓN ESTRICTA: Solo permitir si la contraseña coincide
-    if (validPasswords[username] === password) {
+    if (users && validPasswords[username] === password) {
       return {
-        id: user.id,
-        username: user.username,
-        name: user.name,
-        role: user.role,
+        id: users.id,
+        username: users.username,
+        name: users.name,
+        role: users.role,
       };
     }
 
-    // Contraseña incorrecta
-    console.warn(`Contraseña incorrecta para usuario: ${username}`);
     return null;
-
   } catch (error) {
     console.error("Error en verifyLogin:", error instanceof Error ? error.message : error);
     return null;
