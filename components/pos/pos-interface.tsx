@@ -517,8 +517,6 @@ export function POSInterface() {
                             "es-CO",
                             {
                               timeZone: "UTC",
-                              hour: "2-digit",
-                              minute: "2-digit",
                             })}
             </div>
           </div>
