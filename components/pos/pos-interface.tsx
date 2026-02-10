@@ -513,7 +513,13 @@ export function POSInterface() {
               Ticket #${sale.id.slice(-6).toUpperCase()}
             </div>
             <div class="business-info">
-              ${new Date(sale.createdAt).toLocaleString("es-MX")}
+              ${new Date(sale.createdAt).toLocaleTimeString(
+                            "es-CO",
+                            {
+                              timeZone: "UTC",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
             </div>
           </div>
           
