@@ -607,7 +607,7 @@ export function POSInterface() {
           ${localizerNum ? `
           <div style="text-align: center; margin: 10px 0; border: 2px dashed #000; padding: 8px;">
             <div style="font-size: 14px; font-weight: bold; letter-spacing: 1px;">LOCALIZADOR</div>
-            <div style="font-size: 48px; font-weight: 900; line-height: 1.1; margin-top: 4px;">${localizerNum}</div>
+            <div style="font-size: 30px; font-weight: 900; line-height: 1.1; margin-top: 4px;">${localizerNum}</div>
           </div>
           <div class="line"></div>
           ` : ""}
@@ -618,7 +618,7 @@ export function POSInterface() {
             <div class="item">
               <div class="item-name">
                 ${item.quantity}x ${item.productName}
-                ${item.notes ? `<div style="font-size: 10px; color: #555; font-style: italic; margin-left: 10px; margin-top: 2px;">* ${item.notes}</div>` : ""}
+                ${item.notes ? `<div style="font-size: 10px; font-weight: bold; font-style: italic; margin-left: 10px; margin-top: 2px;">* ${item.notes}</div>` : ""}
               </div>
               <div class="item-price">
                 $${item.total.toLocaleString("en-US", {
