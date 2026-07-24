@@ -1,6 +1,6 @@
 "use client";
 
-import { ReopenCashRegisterForm } from "@/components/ui/reopen-cash-register-form";
+import { InputNumber } from "@/components/ui/input-number";
 import { useState, useEffect } from "react";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -40,7 +42,8 @@ import {
   createDailyClosure,
   getDailyClosures,
   getConfig,
-  hasDailyClosure,
+  getActiveSession,
+  openCashSession,
 } from "@/lib/database";
 import type {
   Sale,
@@ -48,6 +51,7 @@ import type {
   EmployeePayment,
   DailyClosure,
   LowStockProduct,
+  CashSession,
 } from "@/lib/types";
 import {
   Calculator,
@@ -63,6 +67,8 @@ import {
   Package,
   Wallet,
   DollarSign,
+  Lock,
+  LockOpen,
 } from "lucide-react";
 
 export default function CierrePage() {
@@ -74,8 +80,14 @@ export default function CierrePage() {
   );
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showLowStockDialog, setShowLowStockDialog] = useState(false);
+  const [showOpenSessionDialog, setShowOpenSessionDialog] = useState(false);
   const [todayClosure, setTodayClosure] = useState<DailyClosure | null>(null);
+  const [activeSession, setActiveSession] = useState<CashSession | null>(null);
+  const [isSessionLoading, setIsSessionLoading] = useState(true);
   const [config, setConfig] = useState<any>({ dailyBase: 0 });
+  const [openingBase, setOpeningBase] = useState(0);
+  const [openingDescription, setOpeningDescription] = useState("");
+  const [isOpeningSession, setIsOpeningSession] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -83,39 +95,40 @@ export default function CierrePage() {
   }, []);
 
   const loadData = async () => {
+    setIsSessionLoading(true);
     try {
-      const [
-        salesData,
-        expensesData,
-        paymentsData,
-        lowStockData,
-        closuresData,
-        configData,
-        closureExists,
-      ] = await Promise.all([
-        getTodaySales(),
-        getTodayExpenses(),
-        getTodayEmployeePayments(),
-        getLowStockProducts(),
-        getDailyClosures(),
+      const [configData, sessionData] = await Promise.all([
         getConfig(),
-        hasDailyClosure(),
+        getActiveSession(),
       ]);
 
-      setTodaySales(salesData);
-      setTodayExpenses(expensesData);
-      setTodayPayments(paymentsData);
-      setLowStockProducts(lowStockData);
       setConfig(configData);
+      setOpeningBase(configData.dailyBase ?? 0);
+      setActiveSession(sessionData);
 
-      const today = new Date().toISOString().split("T")[0];
-      const existing = closuresData.find((c) => c.date === today);
-
-      // Solo mostrar cierre si existe Y la caja está cerrada
-      if (existing && closureExists) {
-        setTodayClosure(existing);
-      } else {
+      if (sessionData) {
+        // Hay sesión activa — cargar datos de la sesión
+        const [salesData, expensesData, paymentsData, lowStockData] =
+          await Promise.all([
+            getTodaySales(sessionData),
+            getTodayExpenses(sessionData),
+            getTodayEmployeePayments(sessionData),
+            getLowStockProducts(),
+          ]);
+        setTodaySales(salesData);
+        setTodayExpenses(expensesData);
+        setTodayPayments(paymentsData);
+        setLowStockProducts(lowStockData);
         setTodayClosure(null);
+      } else {
+        // Sin sesión activa — buscar el último cierre
+        const closuresData = await getDailyClosures();
+        const lastClosure = closuresData[0] ?? null;
+        setTodayClosure(lastClosure);
+        setTodaySales([]);
+        setTodayExpenses([]);
+        setTodayPayments([]);
+        setLowStockProducts([]);
       }
     } catch (error) {
       console.error("Error loading data:", error);
@@ -124,6 +137,8 @@ export default function CierrePage() {
         description: "No se pudieron cargar los datos",
         variant: "destructive",
       });
+    } finally {
+      setIsSessionLoading(false);
     }
   };
 
@@ -162,7 +177,8 @@ export default function CierrePage() {
     )
     .reduce((sum, e) => sum + e.amount, 0);
 
-  const dailyBase = config.dailyBase || 0;
+  // Usar la base de la sesión activa si existe, si no usar config
+  const dailyBase = activeSession?.openingBase ?? config.dailyBase ?? 0;
 
   // Dinero esperado en caja con nueva lógica
   const expectedCashInRegister =
@@ -190,8 +206,9 @@ export default function CierrePage() {
 
   const handleCloseCash = async () => {
     try {
-      const closure = await createDailyClosure();
+      const closure = await createDailyClosure("admin");
       setTodayClosure(closure);
+      setActiveSession(null);
       setShowConfirmDialog(false);
 
       toast({
@@ -199,16 +216,49 @@ export default function CierrePage() {
         description: "El cierre se ha registrado correctamente",
       });
 
+      await loadData();
+
       if (lowStockProducts.length > 0) {
         setShowLowStockDialog(true);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating closure:", error);
       toast({
         title: "Error",
-        description: "No se pudo completar el cierre de caja",
+        description: error?.message || "No se pudo completar el cierre de caja",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleOpenSession = async () => {
+    setIsOpeningSession(true);
+    try {
+      const session = await openCashSession(openingBase, openingDescription || undefined);
+      if (session) {
+        setActiveSession(session);
+        setShowOpenSessionDialog(false);
+        setOpeningDescription("");
+        toast({
+          title: "Caja abierta",
+          description: `Sesión iniciada con base de $${openingBase.toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
+        });
+        await loadData();
+      } else {
+        toast({
+          title: "Error",
+          description: "No se pudo abrir la caja",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error?.message || "No se pudo abrir la caja",
+        variant: "destructive",
+      });
+    } finally {
+      setIsOpeningSession(false);
     }
   };
 
@@ -559,21 +609,54 @@ export default function CierrePage() {
               })}
             </p>
           </div>
-          {todayClosure ? (
-            <Badge className="gap-2 py-2 px-4 text-base bg-success text-success-foreground">
-              <CheckCircle className="h-5 w-5" />
-              Cierre Completado
-            </Badge>
-          ) : (
-            <Button
-              size="lg"
-              className="gap-2"
-              onClick={() => setShowConfirmDialog(true)}
-            >
-              <Calculator className="h-5 w-5" />
-              Realizar Cierre
-            </Button>
-          )}
+          <div className="flex items-center gap-3">
+            {isSessionLoading ? (
+              <Badge variant="outline" className="gap-2 py-2 px-4 text-base">
+                Cargando...
+              </Badge>
+            ) : activeSession ? (
+              <>
+                <Badge className="gap-2 py-2 px-4 text-sm bg-success/20 text-success border-success">
+                  <LockOpen className="h-4 w-4" />
+                  Caja Abierta
+                </Badge>
+                {todayClosure ? (
+                  <Badge className="gap-2 py-2 px-4 text-base bg-success text-success-foreground">
+                    <CheckCircle className="h-5 w-5" />
+                    Cierre Completado
+                  </Badge>
+                ) : (
+                  <Button
+                    size="lg"
+                    className="gap-2"
+                    onClick={() => setShowConfirmDialog(true)}
+                  >
+                    <Calculator className="h-5 w-5" />
+                    Realizar Cierre
+                  </Button>
+                )}
+              </>
+            ) : (
+              <>
+                <Badge className="gap-2 py-2 px-4 text-sm bg-destructive/10 text-destructive border-destructive/30">
+                  <Lock className="h-4 w-4" />
+                  Caja Cerrada
+                </Badge>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="gap-2 border-success text-success hover:bg-success hover:text-success-foreground"
+                  onClick={() => {
+                    setOpeningBase(config.dailyBase ?? 0);
+                    setShowOpenSessionDialog(true);
+                  }}
+                >
+                  <LockOpen className="h-5 w-5" />
+                  Abrir Caja
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         <ScrollArea className="flex-1">
@@ -1227,36 +1310,6 @@ export default function CierrePage() {
               </Button>
             </div>
 
-            {/* Reopen Cash Register Button */}
-            {todayClosure && (
-              <div className="mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-warning" />
-                      Reabrir Caja
-                    </CardTitle>
-                    <CardDescription>
-                      Usa esta opción solo si necesitas registrar más
-                      movimientos después del cierre
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ReopenCashRegisterForm
-                      onReopen={async () => {
-                        setTodayClosure(null);
-                        await loadData();
-                        toast({
-                          title: "Caja reabierta",
-                          description:
-                            "Ya puedes registrar ventas, gastos y pagos",
-                        });
-                      }}
-                    />
-                  </CardContent>
-                </Card>
-              </div>
-            )}
           </div>
         </ScrollArea>
 
@@ -1386,6 +1439,70 @@ export default function CierrePage() {
             <DialogFooter>
               <Button onClick={() => setShowLowStockDialog(false)}>
                 Entendido
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Open Session Dialog */}
+        <Dialog open={showOpenSessionDialog} onOpenChange={setShowOpenSessionDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <LockOpen className="h-5 w-5 text-success" />
+                Abrir Caja
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">
+                Ingresa la base de efectivo con la que iniciará la caja.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="opening-base">Base inicial de efectivo</Label>
+                <InputNumber
+                  id="opening-base"
+                  value={openingBase}
+                  onChange={setOpeningBase}
+                  allowDecimals={false}
+                  placeholder="0"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Este monto representa el efectivo físico al iniciar la sesión.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="opening-description">Descripción (opcional)</Label>
+                <Input
+                  id="opening-description"
+                  value={openingDescription}
+                  onChange={(e) => setOpeningDescription(e.target.value)}
+                  placeholder="Ej: Turno mañana, Apertura del día..."
+                />
+              </div>
+              <div className="rounded-lg bg-success/10 border border-success/20 p-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Base a abrir:</span>
+                  <span className="font-bold text-success">
+                    ${openingBase.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowOpenSessionDialog(false)}
+                disabled={isOpeningSession}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleOpenSession}
+                disabled={isOpeningSession}
+                className="gap-2 bg-success text-success-foreground hover:bg-success/90"
+              >
+                <LockOpen className="h-4 w-4" />
+                {isOpeningSession ? "Abriendo..." : "Abrir Caja"}
               </Button>
             </DialogFooter>
           </DialogContent>

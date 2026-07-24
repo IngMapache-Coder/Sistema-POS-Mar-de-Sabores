@@ -1,8 +1,18 @@
+export interface Menu {
+  id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Category {
   id: string;
   name: string;
   color: string;
   order: number;
+  parentId?: string | null;
+  menuId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,6 +45,7 @@ export interface SaleItem {
   quantity: number;
   unitPrice: number;
   total: number;
+  notes?: string;
 }
 
 export interface Sale {
@@ -99,6 +110,7 @@ export interface DailyClosure {
   cashAfterClosure?: number;   // Efectivo DESPUÉS del cierre (solo base)
   cashExcessTransferred?: number;
   excessExpenseId?: string;    // ID del gasto que retira el excedente
+  cashSessionId?: string;      // ID de la sesión de caja asociada
 }
 
 export interface LowStockProduct {
@@ -180,4 +192,15 @@ export interface ManualAdjustment {
   amount: number;
   description: string;
   notes?: string;
+}
+
+export interface CashSession {
+  id: string;
+  openedAt: string;
+  closedAt: string | null;
+  openingBase: number;
+  closedBy: string | null;
+  cashExcessTransferred: number;
+  description: string | null;
+  createdAt: string;
 }
