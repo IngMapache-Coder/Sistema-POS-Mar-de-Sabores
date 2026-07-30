@@ -1696,33 +1696,28 @@ export async function getMajorCashAccounts(): Promise<MajorCashAccount[]> {
 
 export async function getMajorCashSummary(): Promise<MajorCashSummary> {
   try {
-    const accounts = await getMajorCashAccounts();
+    const { data, error } = await supabase
+      .rpc('get_major_cash_summary');
 
-    const totalTransfers = accounts
-      .filter((a) => a.type === "transfer")
-      .reduce(
-        (sum, a) =>
-          a.movementType === "income" ? sum + a.amount : sum - a.amount,
-        0,
-      );
+    if (error) throw error;
 
-    const totalSavedCash = accounts
-      .filter((a) => a.type === "saved_cash")
-      .reduce(
-        (sum, a) =>
-          a.movementType === "income" ? sum + a.amount : sum - a.amount,
-        0,
-      );
+    if (data && data.length > 0) {
+      return {
+        totalTransfers: parseFloat(data[0].total_transfers),
+        totalSavedCash: parseFloat(data[0].total_saved_cash),
+        totalMajorCash: parseFloat(data[0].total_major_cash),
+        lastUpdate: data[0].last_update || new Date().toISOString(),
+      };
+    }
 
     return {
-      totalTransfers,
-      totalSavedCash,
-      totalMajorCash: totalTransfers + totalSavedCash,
-      lastUpdate:
-        accounts.length > 0 ? accounts[0].createdAt : new Date().toISOString(),
+      totalTransfers: 0,
+      totalSavedCash: 0,
+      totalMajorCash: 0,
+      lastUpdate: new Date().toISOString(),
     };
   } catch (error) {
-    console.error("Error al calcular resumen de caja mayor:", error);
+    console.error('Error al calcular resumen:', error);
     return {
       totalTransfers: 0,
       totalSavedCash: 0,
