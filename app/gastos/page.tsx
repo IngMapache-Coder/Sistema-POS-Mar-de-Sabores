@@ -274,7 +274,26 @@ export default function GastosPage() {
 
   // Calcular totales
   const totalToday = todayExpenses.reduce((sum, e) => sum + e.amount, 0);
-  const totalAll = allExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const now = new Date();
+
+  const monthYear = now.toLocaleString("es-ES", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const totalAll = allExpenses.reduce((sum, expense) => {
+    const expenseDate = new Date(expense.createdAt);
+
+    if (
+      expenseDate.getMonth() === now.getMonth() &&
+      expenseDate.getFullYear() === now.getFullYear()
+    ) {
+      return sum + expense.amount;
+    }
+
+    return sum;
+  }, 0);
+
   const expensesFromCashRegister = todayExpenses
     .filter((e) => e.paymentMethod === "cash" && e.fromCashRegister)
     .reduce((sum, e) => sum + e.amount, 0);
@@ -379,7 +398,7 @@ export default function GastosPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Histórico
+                Total {monthYear}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -686,10 +705,10 @@ export default function GastosPage() {
                   )}
                   <p className="text-xs text-muted-foreground mt-2">
                     {expenseForm.paymentMethod === "cash" &&
-                    expenseForm.fromCashRegister
+                      expenseForm.fromCashRegister
                       ? "⚠️ Este gasto se restará del dinero disponible en caja al final del día"
                       : expenseForm.paymentMethod === "cash" &&
-                          !expenseForm.fromCashRegister
+                        !expenseForm.fromCashRegister
                         ? "✅ Este gasto no afectará el dinero en caja"
                         : "✅ Transferencia: no afecta el dinero en caja"}
                   </p>
